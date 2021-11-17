@@ -2,10 +2,17 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const sessions = require('express-session');
+const passport = require('./utils/pass');
 const app = express();
 const port = 3000;
-const username = 'foo';
-const password = 'bar';
+
+const loggedIn = (req, res, next) => {
+  if (req.user) {
+    next();
+  } else {
+    res.redirect('/form');
+  }
+};
 
 const oneDay = 1000 * 60 * 60 * 24;
 app.use(sessions({
@@ -14,6 +21,9 @@ app.use(sessions({
   cookie: {maxAge: oneDay},
   resave: false,
 }));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use(cookieParser());
 app.use(express.json());
@@ -30,7 +40,7 @@ app.get('/form', (req, res) => {
   res.render('form');
 });
 
-app.get('/secret', (req, res) => {
+app.get('/secret', loggedIn, (req, res) => {
   res.render('secret');
 });
 
@@ -48,18 +58,16 @@ app.get('/deleteCookie', (req, res) => {
   res.send('eväste poistettu');
 });
 
-app.post('/login', (req, res) => {
-  if (req.body.password === password && req.body.username === username) {
-    req.session.logged = true;
-    res.redirect('/secret');
-  } else {
-    req.session.logged = false;
-    res.redirect('/form');
-  }
-});
+app.post('/login',
+    passport.authenticate('local', {failureRedirect: '/form'}),
+    (req, res) => {
+      console.log('success');
+      res.redirect('/secret');
+    },
+);
 
 app.get('/logout', (req, res) => {
-  req.session.destroy();
+  req.logout();
   res.redirect('/');
 });
 
